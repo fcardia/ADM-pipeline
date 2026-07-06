@@ -1,0 +1,286 @@
+{
+  "__inputs": [],
+  "__requires": [],
+  "annotations": { "list": [] },
+  "description": "Monitoraggio linea imbottigliamento vino — Riempitrice e Tappatrice",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "title": "🍷 RIEMPITRICE — valori in tempo reale",
+      "type": "row"
+    },
+
+    {
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 8, "spanNulls": false }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "temperatura_liquido_C" },
+            "properties": [
+              { "id": "displayName", "value": "Temperatura (°C)" },
+              { "id": "unit", "value": "celsius" },
+              { "id": "thresholds", "value": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 28 }, { "color": "red", "value": 33 }] } },
+              { "id": "custom.thresholdsStyle", "value": { "mode": "line" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "pressione_circuito_bar" },
+            "properties": [
+              { "id": "displayName", "value": "Pressione (bar)" },
+              { "id": "unit", "value": "pressurebar" },
+              { "id": "custom.axisPlacement", "value": "right" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "bottiglie_riempite_pz_min" },
+            "properties": [
+              { "id": "displayName", "value": "Bottiglie (pz/min)" },
+              { "id": "unit", "value": "short" },
+              { "id": "custom.axisPlacement", "value": "right" },
+              { "id": "custom.lineStyle", "value": { "dash": [10, 10], "fill": "dash" } }
+            ]
+          }
+        ]
+      },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 1 },
+      "id": 1,
+      "options": {
+        "legend": { "calcs": ["mean", "max", "lastNotNull"], "displayMode": "table", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "title": "Riempitrice — Tutti i sensori",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
+          "query": "from(bucket: \"sensors\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"riempitrice\")\n  |> filter(fn: (r) => r._field == \"temperatura_liquido_C\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
+          "query": "from(bucket: \"sensors\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"riempitrice\")\n  |> filter(fn: (r) => r._field == \"pressione_circuito_bar\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)",
+          "refId": "B"
+        },
+        {
+          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
+          "query": "from(bucket: \"sensors\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"riempitrice\")\n  |> filter(fn: (r) => r._field == \"bottiglie_riempite_pz_min\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)",
+          "refId": "C"
+        }
+      ]
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 11 },
+      "id": 101,
+      "title": "🔩 TAPPATRICE — valori in tempo reale",
+      "type": "row"
+    },
+
+    {
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 8, "spanNulls": false }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "forza_tappatura_N" },
+            "properties": [
+              { "id": "displayName", "value": "Forza tappatura (N)" },
+              { "id": "unit", "value": "forceN" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "vibrazione_motore_mm_s" },
+            "properties": [
+              { "id": "displayName", "value": "Vibrazione motore (mm/s)" },
+              { "id": "unit", "value": "velocityms" },
+              { "id": "custom.axisPlacement", "value": "right" },
+              { "id": "thresholds", "value": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 3.5 }, { "color": "red", "value": 6.0 }] } },
+              { "id": "custom.thresholdsStyle", "value": { "mode": "line" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "bottiglie_tappate_pz_min" },
+            "properties": [
+              { "id": "displayName", "value": "Bottiglie (pz/min)" },
+              { "id": "unit", "value": "short" },
+              { "id": "custom.axisPlacement", "value": "right" },
+              { "id": "custom.lineStyle", "value": { "dash": [10, 10], "fill": "dash" } }
+            ]
+          }
+        ]
+      },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 12 },
+      "id": 2,
+      "options": {
+        "legend": { "calcs": ["mean", "max", "lastNotNull"], "displayMode": "table", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "title": "Tappatrice — Tutti i sensori",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
+          "query": "from(bucket: \"sensors\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"tappatrice\")\n  |> filter(fn: (r) => r._field == \"forza_tappatura_N\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
+          "query": "from(bucket: \"sensors\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"tappatrice\")\n  |> filter(fn: (r) => r._field == \"vibrazione_motore_mm_s\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)",
+          "refId": "B"
+        },
+        {
+          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
+          "query": "from(bucket: \"sensors\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"tappatrice\")\n  |> filter(fn: (r) => r._field == \"bottiglie_tappate_pz_min\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)",
+          "refId": "C"
+        }
+      ]
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 22 },
+      "id": 102,
+      "title": "� ANOMALIE",
+      "type": "row"
+    },
+
+    {
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] },
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "✅ Normale", "color": "green" } } },
+            { "type": "range", "options": { "from": 1, "to": 1000, "result": { "text": "🔴 ANOMALIA", "color": "red" } } }
+          ]
+        }
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 23 },
+      "id": 22,
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] }, "textMode": "auto" },
+      "title": "Stato Riempitrice",
+      "type": "stat",
+      "targets": [{
+        "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
+        "query": "from(bucket: \"sensors\")\n  |> range(start: -1m)\n  |> filter(fn: (r) => r._measurement == \"riempitrice\" and r._field == \"temperatura_liquido_C\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: if r._value > 28.0 then 1 else 0 }))",
+        "refId": "A"
+      }]
+    },
+
+    {
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] },
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "✅ Normale", "color": "green" } } },
+            { "type": "range", "options": { "from": 1, "to": 1000, "result": { "text": "🔴 ANOMALIA", "color": "red" } } }
+          ]
+        }
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 23 },
+      "id": 23,
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] }, "textMode": "auto" },
+      "title": "Stato Tappatrice",
+      "type": "stat",
+      "targets": [{
+        "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
+        "query": "from(bucket: \"sensors\")\n  |> range(start: -1m)\n  |> filter(fn: (r) => r._measurement == \"tappatrice\" and r._field == \"vibrazione_motore_mm_s\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: if r._value > 3.5 then 1 else 0 }))",
+        "refId": "A"
+      }]
+    },
+
+    {
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 15 },
+          "unit": "celsius",
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 28 }, { "color": "red", "value": 33 }] },
+          "custom.thresholdsStyle": { "mode": "line+area" }
+        }
+      },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 27 },
+      "id": 20,
+      "options": {
+        "legend": { "calcs": ["max"], "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "single" }
+      },
+      "title": "🌡️ Temperatura Riempitrice — soglia 28°C",
+      "type": "timeseries",
+      "targets": [{
+        "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
+        "query": "from(bucket: \"sensors\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"riempitrice\" and r._field == \"temperatura_liquido_C\")\n  |> aggregateWindow(every: v.windowPeriod, fn: max, createEmpty: false)",
+        "refId": "A"
+      }]
+    },
+
+    {
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 15 },
+          "unit": "velocityms",
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 3.5 }, { "color": "red", "value": 6.0 }] },
+          "custom.thresholdsStyle": { "mode": "line+area" }
+        }
+      },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 27 },
+      "id": 21,
+      "options": {
+        "legend": { "calcs": ["max"], "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "single" }
+      },
+      "title": "📳 Vibrazione Tappatrice — soglia 3.5 mm/s",
+      "type": "timeseries",
+      "targets": [{
+        "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB}" },
+        "query": "from(bucket: \"sensors\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"tappatrice\" and r._field == \"vibrazione_motore_mm_s\")\n  |> aggregateWindow(every: v.windowPeriod, fn: max, createEmpty: false)",
+        "refId": "A"
+      }]
+    }
+
+  ],
+
+  "refresh": "5s",
+  "schemaVersion": 38,
+  "tags": ["winery", "iot", "sensori"],
+  "templating": {
+    "list": [{
+      "current": {},
+      "hide": 2,
+      "includeAll": false,
+      "name": "DS_INFLUXDB",
+      "options": [],
+      "query": "influxdb",
+      "refresh": 1,
+      "type": "datasource"
+    }]
+  },
+  "time": { "from": "now-30m", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "🍷 Linea Imbottigliamento Vino",
+  "uid": "winery-main",
+  "version": 1
+}
