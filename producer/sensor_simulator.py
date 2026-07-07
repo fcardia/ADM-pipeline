@@ -370,7 +370,7 @@ def publish_to_mqtt(client: mqtt.Client, topic: str, payload: dict) -> None:
     Pubblica un messaggio JSON su un topic MQTT.
     """
     message = json.dumps(payload)
-    result = client.publish(topic, message, qos=1)
+    result = client.publish(topic, message, qos=0)
 
     if result.rc != mqtt.MQTT_ERR_SUCCESS:
         raise RuntimeError(

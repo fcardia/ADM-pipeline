@@ -1,2 +1,13 @@
+# Dati generati dal simulatore
 /data/*
 !/data/.gitkeep
+
+# Segreti / configurazione locale (NON committare)
+.env
+
+# Cache Python
+__pycache__/
+*.pyc
+
+# macOS
+.DS_Store

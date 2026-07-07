@@ -267,8 +267,8 @@
     {
       "id": 6,
       "type": "timeseries",
-      "title": "Trend storico — medie orarie (farm_rollup)",
-      "description": "Temperatura e umidità medie orarie dal bucket storico farm_rollup. NB: si popola solo quando il task di rollup è attivo (vedi README / PIPELINE.md §7.1).",
+      "title": "Trend storico — media / min / max al minuto (farm_rollup)",
+      "description": "Temperatura e umidità dal bucket storico farm_rollup, aggregate al minuto: linea piena = media, tratteggiate = min e max (escursione). Si popola quando il task di rollup è attivo.",
       "datasource": { "type": "influxdb", "uid": "farm-influxdb" },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
       "targets": [
@@ -276,6 +276,16 @@
           "refId": "A",
           "datasource": { "type": "influxdb", "uid": "farm-influxdb" },
           "query": "from(bucket: \"farm_rollup\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"air_quality\" and (r._field == \"temperature_c\" or r._field == \"humidity_pct\")) |> group(columns: [\"zone\", \"_field\"]) |> keep(columns: [\"_time\", \"_value\", \"zone\", \"_field\"])"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "influxdb", "uid": "farm-influxdb" },
+          "query": "from(bucket: \"farm_rollup\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"air_quality\" and (r._field == \"temperature_c_max\" or r._field == \"humidity_pct_max\")) |> group(columns: [\"zone\", \"_field\"]) |> keep(columns: [\"_time\", \"_value\", \"zone\", \"_field\"])"
+        },
+        {
+          "refId": "C",
+          "datasource": { "type": "influxdb", "uid": "farm-influxdb" },
+          "query": "from(bucket: \"farm_rollup\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"air_quality\" and (r._field == \"temperature_c_min\" or r._field == \"humidity_pct_min\")) |> group(columns: [\"zone\", \"_field\"]) |> keep(columns: [\"_time\", \"_value\", \"zone\", \"_field\"])"
         }
       ],
       "fieldConfig": {
@@ -289,7 +299,24 @@
             "spanNulls": true
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": { "id": "byFrameRefID", "options": "B" },
+            "properties": [
+              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [8, 4] } },
+              { "id": "custom.lineWidth", "value": 1 },
+              { "id": "custom.fillOpacity", "value": 0 }
+            ]
+          },
+          {
+            "matcher": { "id": "byFrameRefID", "options": "C" },
+            "properties": [
+              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [8, 4] } },
+              { "id": "custom.lineWidth", "value": 1 },
+              { "id": "custom.fillOpacity", "value": 0 }
+            ]
+          }
+        ]
       },
       "options": {
         "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "last"] },
