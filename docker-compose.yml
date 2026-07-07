@@ -33,6 +33,7 @@ networks:
 volumes:
   mosquitto-data:
   mosquitto-log:
+  influxdb-data:
 
 services:
   sensor-simulator:
@@ -74,4 +75,40 @@ services:
       retries: 5
       start_period: 5s
 
+  telegraf:
+    image: telegraf:1.30
+    container_name: farm-telegraf
+    networks:
+      - farm-net
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+      influxdb:
+        condition: service_healthy      
+    volumes:
+      - ./telegraf/telegraf.conf:/etc/telegraf/telegraf.conf:ro
+    restart: on-failure
+
+  influxdb:
+    image: influxdb:2.7
+    container_name: farm-influxdb
+    networks:
+      - farm-net
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb-data:/var/lib/influxdb2
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: admin
+      DOCKER_INFLUXDB_INIT_PASSWORD: adminpassword
+      DOCKER_INFLUXDB_INIT_ORG: farm
+      DOCKER_INFLUXDB_INIT_BUCKET: farm_raw
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: farm-token
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
 

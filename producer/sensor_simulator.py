@@ -58,7 +58,6 @@ from typing import Optional
 
 MQTT_HOST = os.getenv("MQTT_HOST", "mosquitto")
 MQTT_PORT = int(os.getenv("MQTT_PORT", "1883"))
-
 TOPIC_AIR_QUALITY = os.getenv("TOPIC_AIR_QUALITY", "sensors/air_quality")
 TOPIC_SOIL_QUALITY = os.getenv("TOPIC_SOIL_QUALITY", "sensors/soil_quality")
 TOPIC_MOISTURE = os.getenv("TOPIC_MOISTURE", "sensors/soil_moisture")
@@ -66,7 +65,6 @@ TOPIC_POWER_CONSUMPTION = os.getenv("TOPIC_POWER_CONSUMPTION", "sensors/power_co
 
 
 ZONES = ["A", "B", "C"]
-
 ACTUATORS = [
     # id, potenza nominale (W), tipo
     {"id": "irrigation_pump_1", "nominal_w": 750, "type": "pump", "zone": "A"},
