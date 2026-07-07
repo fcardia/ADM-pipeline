@@ -1,0 +1,11 @@
+# Il simulatore di base (sensor_simulator.py) usa SOLO la libreria standard
+# di Python: non e' richiesta alcuna dipendenza per eseguirlo (ne' in
+# locale ne' nel container Docker).
+#
+# Le righe seguenti servono SOLO quando, durante l'hackathon, implementerete
+# publish_to_mqtt() / publish_to_kafka() 
+# per iniettare i dati su Mosquitto e/o Kafka. Scommentate quella che vi
+# serve:
+
+paho-mqtt>=1.6,<2.0   # client MQTT per Mosquitto
+# kafka-python>=2.0     # client Kafka

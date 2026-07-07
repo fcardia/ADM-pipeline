@@ -1,0 +1,77 @@
+# Avvio rapido: docker compose up --build
+#
+# IMPORTANTE: usate SEMPRE "docker compose up" (non "docker run" diretto
+# sull'immagine) - solo cosi' viene applicato il bind mount "volumes:" qui
+# sotto, che e' l'unico modo per far comparire il CSV sull'host.
+#
+# - I log del simulatore (stdout) si vedono con:
+#     docker compose logs -f sensor-simulator
+#   oppure nel tab "Logs" del container in Docker Desktop.
+#
+# - Il file CSV generato e' visibile sull'host nella cartella ./data,
+#   creata automaticamente ACCANTO A QUESTO FILE docker-compose.yml al
+#   primo avvio (grazie al bind mount qui sotto), oppure dal tab "Files"
+#   del container in Docker Desktop, nel percorso /app/data/sensor_data.csv.
+#
+# Troubleshooting se il file non compare in ./data sull'host:
+#   1. Verificate di aver lanciato "docker compose up --build" (non
+#      "docker run ...") dalla stessa cartella in cui si trova questo file.
+#   2. docker compose exec sensor-simulator ls -la /app/data
+#      -> se il file c'e' QUI dentro ma non sull'host, il bind mount non e'
+#         attivo: controllate che la sezione "volumes:" sotto sia presente
+#         e non sia stata rimossa/commentata per errore.
+#   3. docker compose down -v  seguito da  docker compose up --build
+#      per ripartire puliti (rimuove eventuali volumi anonimi residui di
+#      test fatti in precedenza con "docker run").
+
+version: "3.8"
+
+networks:
+  farm-net:
+    driver: bridge
+
+volumes:
+  mosquitto-data:
+  mosquitto-log:
+
+services:
+  sensor-simulator:
+    build:
+      context: ./producer
+      dockerfile: Dockerfile
+    container_name: farm-sensor-simulator
+    command: ["--interval", "1", "--csv-path", "data/sensor_data.csv"]
+    depends_on:
+      - mosquitto
+    networks:
+      - farm-net
+    volumes:
+      - ./data:/app/data
+    environment:
+      MQTT_HOST: mosquitto
+      MQTT_PORT: "1883"
+      TOPIC_AIR_QUALITY: sensors/air_quality
+      TOPIC_SOIL_QUALITY: sensors/soil_quality
+      TOPIC_MOISTURE: sensors/soil_moisture
+      TOPIC_POWER_CONSUMPTION: sensors/power_consumption      
+    restart: on-failure
+  
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: farm-mosquitto
+    networks:
+      - farm-net
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto/config:/mosquitto/config:ro
+      - mosquitto-data:/mosquitto/data
+      - mosquitto-log:/mosquitto/log
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -h localhost -t '$$SYS/#' -C 1 -W 3 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+
