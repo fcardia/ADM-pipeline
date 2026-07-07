@@ -34,6 +34,7 @@ volumes:
   mosquitto-data:
   mosquitto-log:
   influxdb-data:
+  grafana-data:
 
 services:
   sensor-simulator:
@@ -111,4 +112,32 @@ services:
       timeout: 10s
       retries: 10
       start_period: 20s
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: farm-grafana
+    networks:
+      - farm-net
+    ports:
+      - "3000:3000"
+    depends_on:
+      influxdb:
+        condition: service_healthy
+    environment:
+      # Password admin (login iniziale: admin / <questa password>)
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD:-admin}
+      # Consente l'interpolazione delle env var nei file di provisioning
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      # --- variabili usate dai file di provisioning (datasource + alerting) ---
+      # Default coerenti con il servizio influxdb di questo compose.
+      INFLUXDB_ORG: ${INFLUXDB_ORG:-farm}
+      INFLUXDB_BUCKET: ${INFLUXDB_BUCKET:-farm_raw}
+      INFLUXDB_TOKEN: ${INFLUXDB_TOKEN:-farm-token}
+      # Webhook Slack per gli allarmi (vuoto = nessuna notifica inviata).
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-}
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    restart: on-failure
 

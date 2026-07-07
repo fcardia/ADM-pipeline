@@ -1,0 +1,193 @@
+# Regole di alerting (Grafana Unified Alerting) — provisioning automatico.
+#
+# Pattern comune (per le 3 regole):
+#   A = query Flux su farm_raw: conta le letture oltre soglia nella finestra
+#       recente, raggruppate per zona (o per attuatore) -> una serie per gruppo.
+#   B = reduce (last) -> riduce ogni serie a un singolo numero (il count).
+#   C = threshold    -> confronta il count con la soglia -> condizione di alert.
+#
+# group by nella query Flux => un'istanza di allarme per zona/attuatore
+# (multi-dimensional alerting): un solo rule, N notifiche indipendenti.
+#
+# noDataState: OK  => quando NESSUNA lettura supera la soglia, la query Flux
+#   restituisce zero righe (NoData) = stato sano, quindi NON deve allarmare.
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: smart-farm-alerts
+    folder: Smart Farm Alerts
+    interval: 10s        # frequenza di valutazione (motore backend, always-on)
+    rules:
+
+      # ═══════════════════════════════════════════════════════════════════════
+      # ALERT 1 — Qualita' dell'aria critica
+      # pm25_ugm3 > 50 per >=3 letture nella stessa zona (count > 2)
+      # ═══════════════════════════════════════════════════════════════════════
+      - uid: farm_air_quality_pm25
+        title: 'Qualita aria critica (PM2.5 > 50)'
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: critical
+          category: air_quality
+        annotations:
+          summary: 'PM2.5 oltre 50 µg/m³ in zona {{ $labels.zone }} ({{ $values.B }} letture sopra soglia nell''ultimo minuto).'
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 60
+              to: 0
+            datasourceUid: farm-influxdb
+            model:
+              refId: A
+              datasource:
+                type: influxdb
+                uid: farm-influxdb
+              query: 'from(bucket: "farm_raw") |> range(start: -1m) |> filter(fn: (r) => r._measurement == "air_quality" and r._field == "pm25_ugm3") |> filter(fn: (r) => r._value > 50.0) |> group(columns: ["zone"]) |> count()'
+          - refId: B
+            relativeTimeRange:
+              from: 60
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+              datasource:
+                type: __expr__
+                uid: __expr__
+          - refId: C
+            relativeTimeRange:
+              from: 60
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              datasource:
+                type: __expr__
+                uid: __expr__
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [2]
+
+      # ═══════════════════════════════════════════════════════════════════════
+      # ALERT 2 — Stress idrico del suolo
+      # soil_moisture_pct < 20 per >=2 letture nella stessa zona (count > 1)
+      # ═══════════════════════════════════════════════════════════════════════
+      - uid: farm_soil_water_stress
+        title: 'Stress idrico suolo (umidita < 20%)'
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+          category: soil_moisture
+        annotations:
+          summary: 'Umidita del suolo sotto il 20% in zona {{ $labels.zone }} ({{ $values.B }} letture sotto soglia nell''ultimo minuto). Valutare irrigazione.'
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 60
+              to: 0
+            datasourceUid: farm-influxdb
+            model:
+              refId: A
+              datasource:
+                type: influxdb
+                uid: farm-influxdb
+              query: 'from(bucket: "farm_raw") |> range(start: -1m) |> filter(fn: (r) => r._measurement == "soil_moisture" and r._field == "soil_moisture_pct") |> filter(fn: (r) => r._value < 20.0) |> group(columns: ["zone"]) |> count()'
+          - refId: B
+            relativeTimeRange:
+              from: 60
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+              datasource:
+                type: __expr__
+                uid: __expr__
+          - refId: C
+            relativeTimeRange:
+              from: 60
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              datasource:
+                type: __expr__
+                uid: __expr__
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [1]
+
+      # ═══════════════════════════════════════════════════════════════════════
+      # ALERT 3 — Anomalia consumi elettrici (sovraccarico pompe)
+      # pompa accesa (status=on, actuator_type=pump) con power_w > 1125 W
+      # (= 1.5 × 750 W nominali). Condizione: count > 0 (una sola lettura basta).
+      # ═══════════════════════════════════════════════════════════════════════
+      - uid: farm_power_overload
+        title: 'Sovraccarico pompa (power_w > 1.5x nominale)'
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: critical
+          category: power_consumption
+        annotations:
+          summary: 'Pompa {{ $labels.actuator_id }} accesa con potenza oltre 1125 W (1.5× nominale): possibile sovraccarico o guasto.'
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 60
+              to: 0
+            datasourceUid: farm-influxdb
+            model:
+              refId: A
+              datasource:
+                type: influxdb
+                uid: farm-influxdb
+              query: 'from(bucket: "farm_raw") |> range(start: -1m) |> filter(fn: (r) => r._measurement == "power_consumption" and r._field == "power_w") |> filter(fn: (r) => r.status == "on" and r.actuator_type == "pump" and r._value > 1125.0) |> group(columns: ["actuator_id"]) |> count()'
+          - refId: B
+            relativeTimeRange:
+              from: 60
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+              datasource:
+                type: __expr__
+                uid: __expr__
+          - refId: C
+            relativeTimeRange:
+              from: 60
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              datasource:
+                type: __expr__
+                uid: __expr__
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0]

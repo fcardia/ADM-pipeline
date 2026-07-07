@@ -1,0 +1,15 @@
+# Provider di dashboard: carica automaticamente ogni .json trovato in
+# /var/lib/grafana/dashboards (montato dal docker-compose).
+apiVersion: 1
+
+providers:
+  - name: 'Smart Farm'
+    orgId: 1
+    folder: 'Smart Farm'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

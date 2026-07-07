@@ -1,0 +1,22 @@
+# Notification policy (routing degli alert -> contact point).
+# Raggruppa per alertname + zona + attuatore, cosi' ogni zona/pompa
+# genera una notifica distinta.
+apiVersion: 1
+
+policies:
+  - orgId: 1
+    receiver: slack-farm
+    group_by: ['alertname', 'zone', 'actuator_id']
+    group_wait: 10s
+    group_interval: 30s
+    repeat_interval: 4h
+
+    # ---------------------------------------------------------------------------
+    # (OPZIONALE) Per archiviare anche su MongoDB: aggiungi una route figlia che
+    # inoltra tutto anche al receiver "mongo-archive" (definito e decommentato in
+    # contact-points.yaml). continue: true fa proseguire la valutazione cosi'
+    # l'alert va SIA a Slack SIA al webhook Mongo.
+    # ---------------------------------------------------------------------------
+    # routes:
+    #   - receiver: mongo-archive
+    #     continue: true

@@ -1,0 +1,22 @@
+# Datasource InfluxDB (Flux) — provisioning automatico.
+# I valori sensibili NON sono hardcoded: arrivano da variabili d'ambiente
+# passate al container Grafana (vedi docker-compose.yml -> service grafana),
+# con default coerenti con l'InfluxDB realmente deployato in questo compose
+# (org "farm", token "farm-token", bucket "farm_raw").
+apiVersion: 1
+
+datasources:
+  - name: InfluxDB
+    uid: farm-influxdb          # uid fisso: referenziato da dashboard e alert rules
+    type: influxdb
+    access: proxy
+    url: http://farm-influxdb:8086   # hostname del servizio influxdb nella farm-net
+    isDefault: true
+    jsonData:
+      version: Flux
+      organization: ${INFLUXDB_ORG}
+      defaultBucket: ${INFLUXDB_BUCKET}
+      tlsSkipVerify: true
+    secureJsonData:
+      token: ${INFLUXDB_TOKEN}
+    editable: true

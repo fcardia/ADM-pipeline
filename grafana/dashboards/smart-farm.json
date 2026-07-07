@@ -1,0 +1,324 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [],
+  "liveNow": true,
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["smart-farm", "agridata", "iot"],
+  "templating": { "list": [] },
+  "time": { "from": "now-15m", "to": "now" },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Smart Farm — Monitoring & Alerting",
+  "uid": "smart-farm-main",
+  "version": 1,
+  "weekStart": "",
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Umidità del suolo per zona (%)",
+      "description": "soil_moisture_pct per zona A/B/C. Soglia di stress idrico a 20%.",
+      "datasource": { "type": "influxdb", "uid": "farm-influxdb" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb", "uid": "farm-influxdb" },
+          "query": "from(bucket: \"farm_raw\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"soil_moisture\" and r._field == \"soil_moisture_pct\") |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false) |> group(columns: [\"zone\"]) |> keep(columns: [\"_time\", \"_value\", \"zone\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": true,
+            "thresholdsStyle": { "mode": "line" }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 20 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "min"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "PM2.5 per zona (µg/m³)",
+      "description": "pm25_ugm3 per zona A/B/C. Soglia qualità aria critica a 50.",
+      "datasource": { "type": "influxdb", "uid": "farm-influxdb" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb", "uid": "farm-influxdb" },
+          "query": "from(bucket: \"farm_raw\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"air_quality\" and r._field == \"pm25_ugm3\") |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false) |> group(columns: [\"zone\"]) |> keep(columns: [\"_time\", \"_value\", \"zone\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "conµg/m³",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": true,
+            "thresholdsStyle": { "mode": "line" }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 50 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "max"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Consumi attuatori — power_w (W)",
+      "description": "Potenza istantanea per attuatore (power_consumption).",
+      "datasource": { "type": "influxdb", "uid": "farm-influxdb" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb", "uid": "farm-influxdb" },
+          "query": "from(bucket: \"farm_raw\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"power_consumption\" and r._field == \"power_w\") |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false) |> group(columns: [\"actuator_id\"]) |> keep(columns: [\"_time\", \"_value\", \"actuator_id\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "watt",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "fillOpacity": 5,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byRegexp", "options": "/irrigation_pump.*/" },
+            "properties": [
+              { "id": "custom.thresholdsStyle", "value": { "mode": "line" } },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "green", "value": null },
+                    { "color": "red", "value": 1125 }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "max"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "id": 4,
+      "type": "state-timeline",
+      "title": "Stato attuatori (on/off)",
+      "description": "status on/off degli attuatori nel tempo (1 = on, 0 = off).",
+      "datasource": { "type": "influxdb", "uid": "farm-influxdb" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb", "uid": "farm-influxdb" },
+          "query": "from(bucket: \"farm_raw\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"power_consumption\" and r._field == \"power_w\") |> map(fn: (r) => ({r with _value: if r.status == \"on\" then 1.0 else 0.0})) |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false) |> group(columns: [\"actuator_id\"]) |> keep(columns: [\"_time\", \"_value\", \"actuator_id\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "fillOpacity": 90, "lineWidth": 0 },
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "off", "color": "gray", "index": 0 } } },
+            { "type": "value", "options": { "1": { "text": "on", "color": "green", "index": 1 } } }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "gray", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          },
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "mergeValues": true,
+        "showValue": "never",
+        "alignValue": "left",
+        "rowHeight": 0.9,
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      }
+    },
+    {
+      "id": 5,
+      "type": "table",
+      "title": "Vista riassuntiva per zona (ultimi valori medi)",
+      "description": "Ultima temperatura e umidità dell'aria per zona.",
+      "datasource": { "type": "influxdb", "uid": "farm-influxdb" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "datasource": { "type": "influxdb", "uid": "farm-influxdb" },
+          "query": "from(bucket: \"farm_raw\") |> range(start: -15m) |> filter(fn: (r) => r._measurement == \"air_quality\" and (r._field == \"temperature_c\" or r._field == \"humidity_pct\")) |> last() |> keep(columns: [\"zone\", \"_field\", \"_value\"]) |> pivot(rowKey: [\"zone\"], columnKey: [\"_field\"], valueColumn: \"_value\") |> sort(columns: [\"zone\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "align": "center", "cellOptions": { "type": "auto" } }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "temperature_c" },
+            "properties": [
+              { "id": "unit", "value": "celsius" },
+              { "id": "displayName", "value": "Temperatura" },
+              { "id": "custom.cellOptions", "value": { "type": "color-text" } },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "blue", "value": null },
+                    { "color": "green", "value": 15 },
+                    { "color": "orange", "value": 30 }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "humidity_pct" },
+            "properties": [
+              { "id": "unit", "value": "percent" },
+              { "id": "displayName", "value": "Umidità aria" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "zone" },
+            "properties": [{ "id": "displayName", "value": "Zona" }]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "md",
+        "footer": { "show": false }
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Trend storico — medie orarie (farm_rollup)",
+      "description": "Temperatura e umidità medie orarie dal bucket storico farm_rollup. NB: si popola solo quando il task di rollup è attivo (vedi README / PIPELINE.md §7.1).",
+      "datasource": { "type": "influxdb", "uid": "farm-influxdb" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb", "uid": "farm-influxdb" },
+          "query": "from(bucket: \"farm_rollup\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"air_quality\" and (r._field == \"temperature_c\" or r._field == \"humidity_pct\")) |> group(columns: [\"zone\", \"_field\"]) |> keep(columns: [\"_time\", \"_value\", \"zone\", \"_field\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 5,
+            "showPoints": "auto",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "last"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "id": 7,
+      "type": "alertlist",
+      "title": "Allarmi Smart Farm",
+      "description": "Stato corrente delle regole di alerting (aria / stress idrico / sovraccarico pompe).",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 24 },
+      "options": {
+        "showOptions": "current",
+        "maxItems": 20,
+        "sortOrder": 3,
+        "dashboardAlerts": false,
+        "alertName": "",
+        "alertInstanceLabelFilter": "",
+        "datasource": "",
+        "folderId": null,
+        "stateFilter": {
+          "firing": true,
+          "pending": true,
+          "noData": false,
+          "normal": false,
+          "error": true
+        }
+      }
+    }
+  ]
+}
