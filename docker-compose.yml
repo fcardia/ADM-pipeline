@@ -99,12 +99,15 @@ services:
       - "8086:8086"
     volumes:
       - influxdb-data:/var/lib/influxdb2
+      # Script eseguiti SOLO al primo avvio (volume vuoto): creano i bucket      
+      - ./influxdb/init:/docker-entrypoint-initdb.d:ro
     environment:
       DOCKER_INFLUXDB_INIT_MODE: setup
       DOCKER_INFLUXDB_INIT_USERNAME: admin
       DOCKER_INFLUXDB_INIT_PASSWORD: adminpassword
       DOCKER_INFLUXDB_INIT_ORG: farm
       DOCKER_INFLUXDB_INIT_BUCKET: farm_raw
+      DOCKER_INFLUXDB_INIT_RETENTION: 30d # retention policy di default per il bucket farm_raw, deve essere diversa per il secondo bucket 
       DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: farm-token
     healthcheck:
       test: ["CMD", "influx", "ping"]
