@@ -1,14 +1,5 @@
-# Contact point Slack — provisioning automatico.
-# L'URL del webhook NON e' hardcoded: arriva dalla variabile d'ambiente
-# SLACK_WEBHOOK_URL (vedi .env.example / docker-compose.yml).
-#
-# COLLEGAMENTO A SLACK (cosa cambiare):
-#   1. Crea una Slack App "from scratch" -> Incoming Webhooks -> ON.
-#   2. "Add New Webhook to Workspace" -> scegli il canale (es. #farm-alerts).
-#   3. Copia l'URL (https://hooks.slack.com/services/XXX/YYY/ZZZ) in .env:
-#         SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
-#   4. Riavvia Grafana:  docker compose up -d grafana
-#   Nessuna altra modifica necessaria: la policy sotto instrada gia' qui.
+# Contact point Slack. URL webhook da env var SLACK_WEBHOOK_URL (vedi .env.example).
+# Setup: crea un Incoming Webhook Slack, mettine l'URL in .env, poi: docker compose up -d grafana
 apiVersion: 1
 
 contactPoints:
@@ -27,12 +18,8 @@ contactPoints:
             {{ end }}
         disableResolveMessage: false
 
-  # ---------------------------------------------------------------------------
-  # (OPZIONALE) Storico allarmi su MongoDB tramite webhook.
-  # Decommenta questo receiver e aggiungilo alla policy in notification-policies.yaml
-  # (campo receiver, oppure come route parallela). Punta a un micro-servizio
-  # (vedi PIPELINE.md §10, cartella alert-webhook/) che scrive gli eventi in Mongo.
-  # ---------------------------------------------------------------------------
+  # (OPZIONALE) Storico allarmi su MongoDB via webhook: decommenta e collegalo in
+  # notification-policies.yaml. Micro-servizio in PIPELINE.md §10 (alert-webhook/).
   # - orgId: 1
   #   name: mongo-archive
   #   receivers:

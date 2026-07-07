@@ -1,16 +1,3 @@
-# Regole di alerting (Grafana Unified Alerting) — provisioning automatico.
-#
-# Pattern comune (per le 3 regole):
-#   A = query Flux su farm_raw: conta le letture oltre soglia nella finestra
-#       recente, raggruppate per zona (o per attuatore) -> una serie per gruppo.
-#   B = reduce (last) -> riduce ogni serie a un singolo numero (il count).
-#   C = threshold    -> confronta il count con la soglia -> condizione di alert.
-#
-# group by nella query Flux => un'istanza di allarme per zona/attuatore
-# (multi-dimensional alerting): un solo rule, N notifiche indipendenti.
-#
-# noDataState: OK  => quando NESSUNA lettura supera la soglia, la query Flux
-#   restituisce zero righe (NoData) = stato sano, quindi NON deve allarmare.
 apiVersion: 1
 
 groups:
@@ -20,10 +7,8 @@ groups:
     interval: 10s        # frequenza di valutazione (motore backend, always-on)
     rules:
 
-      # ═══════════════════════════════════════════════════════════════════════
-      # ALERT 1 — Qualita' dell'aria critica
-      # pm25_ugm3 > 50 per >=3 letture nella stessa zona (count > 2)
-      # ═══════════════════════════════════════════════════════════════════════
+      # ALERT 1 — Qualità aria: pm25_ugm3 > 50 nelle ultime 3 letture/zona (count == 3 => gt 2).
+      # range -5m per avere >= 3 letture anche con --interval alto.
       - uid: farm_air_quality_pm25
         title: 'Qualita aria critica (PM2.5 > 50)'
         condition: C
@@ -34,11 +19,11 @@ groups:
           severity: critical
           category: air_quality
         annotations:
-          summary: 'PM2.5 oltre 50 µg/m³ in zona {{ $labels.zone }} ({{ $values.B }} letture sopra soglia nell''ultimo minuto).'
+          summary: 'PM2.5 oltre 50 µg/m³ in zona {{ $labels.zone }}: le ultime 3 letture consecutive sono tutte sopra soglia.'
         data:
           - refId: A
             relativeTimeRange:
-              from: 60
+              from: 300
               to: 0
             datasourceUid: farm-influxdb
             model:
@@ -46,10 +31,10 @@ groups:
               datasource:
                 type: influxdb
                 uid: farm-influxdb
-              query: 'from(bucket: "farm_raw") |> range(start: -1m) |> filter(fn: (r) => r._measurement == "air_quality" and r._field == "pm25_ugm3") |> filter(fn: (r) => r._value > 50.0) |> group(columns: ["zone"]) |> count()'
+              query: 'from(bucket: "farm_raw") |> range(start: -5m) |> filter(fn: (r) => r._measurement == "air_quality" and r._field == "pm25_ugm3") |> group(columns: ["zone"]) |> sort(columns: ["_time"]) |> tail(n: 3) |> filter(fn: (r) => r._value > 50.0) |> count()'
           - refId: B
             relativeTimeRange:
-              from: 60
+              from: 300
               to: 0
             datasourceUid: __expr__
             model:
@@ -62,7 +47,7 @@ groups:
                 uid: __expr__
           - refId: C
             relativeTimeRange:
-              from: 60
+              from: 300
               to: 0
             datasourceUid: __expr__
             model:
@@ -77,10 +62,7 @@ groups:
                     type: gt
                     params: [2]
 
-      # ═══════════════════════════════════════════════════════════════════════
-      # ALERT 2 — Stress idrico del suolo
-      # soil_moisture_pct < 20 per >=2 letture nella stessa zona (count > 1)
-      # ═══════════════════════════════════════════════════════════════════════
+      # ALERT 2 — Stress idrico: soil_moisture_pct < 20 nelle ultime 2 letture/zona (count == 2 => gt 1).
       - uid: farm_soil_water_stress
         title: 'Stress idrico suolo (umidita < 20%)'
         condition: C
@@ -91,11 +73,11 @@ groups:
           severity: warning
           category: soil_moisture
         annotations:
-          summary: 'Umidita del suolo sotto il 20% in zona {{ $labels.zone }} ({{ $values.B }} letture sotto soglia nell''ultimo minuto). Valutare irrigazione.'
+          summary: 'Umidita del suolo sotto il 20% in zona {{ $labels.zone }}: le ultime 2 letture consecutive sono entrambe sotto soglia. Valutare irrigazione.'
         data:
           - refId: A
             relativeTimeRange:
-              from: 60
+              from: 300
               to: 0
             datasourceUid: farm-influxdb
             model:
@@ -103,10 +85,10 @@ groups:
               datasource:
                 type: influxdb
                 uid: farm-influxdb
-              query: 'from(bucket: "farm_raw") |> range(start: -1m) |> filter(fn: (r) => r._measurement == "soil_moisture" and r._field == "soil_moisture_pct") |> filter(fn: (r) => r._value < 20.0) |> group(columns: ["zone"]) |> count()'
+              query: 'from(bucket: "farm_raw") |> range(start: -5m) |> filter(fn: (r) => r._measurement == "soil_moisture" and r._field == "soil_moisture_pct") |> group(columns: ["zone"]) |> sort(columns: ["_time"]) |> tail(n: 2) |> filter(fn: (r) => r._value < 20.0) |> count()'
           - refId: B
             relativeTimeRange:
-              from: 60
+              from: 300
               to: 0
             datasourceUid: __expr__
             model:
@@ -119,7 +101,7 @@ groups:
                 uid: __expr__
           - refId: C
             relativeTimeRange:
-              from: 60
+              from: 300
               to: 0
             datasourceUid: __expr__
             model:
@@ -134,11 +116,8 @@ groups:
                     type: gt
                     params: [1]
 
-      # ═══════════════════════════════════════════════════════════════════════
-      # ALERT 3 — Anomalia consumi elettrici (sovraccarico pompe)
-      # pompa accesa (status=on, actuator_type=pump) con power_w > 1125 W
-      # (= 1.5 × 750 W nominali). Condizione: count > 0 (una sola lettura basta).
-      # ═══════════════════════════════════════════════════════════════════════
+      # ALERT 3 — Sovraccarico pompe: pompa on con power_w > 1125 W (1.5×750 W), basta 1 lettura (gt 0).
+      # NB: 750 W è la nominale assunta in sensor_simulator.py, non nella traccia: se cambia, aggiornare 1125.0.
       - uid: farm_power_overload
         title: 'Sovraccarico pompa (power_w > 1.5x nominale)'
         condition: C
@@ -149,7 +128,7 @@ groups:
           severity: critical
           category: power_consumption
         annotations:
-          summary: 'Pompa {{ $labels.actuator_id }} accesa con potenza oltre 1125 W (1.5× nominale): possibile sovraccarico o guasto.'
+          summary: 'Pompa {{ $labels.actuator_id }} accesa con potenza oltre 1125 W (1.5× nominale): {{ $values.B.Value }} letture di sovraccarico nell''ultimo minuto. Possibile guasto.'
         data:
           - refId: A
             relativeTimeRange:

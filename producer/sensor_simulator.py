@@ -1,43 +1,15 @@
 #!/usr/bin/env python3
-"""
-sensor_simulator.py
-====================
+"""Simulatore di sensori Smart Farm (hackathon ADM).
 
-Simulatore di sensori per lo scenario "Smart Farm" (hackathon Advanced Data
-Management).
+Genera in tempo reale letture da 4 tipi di sensore su 3 zone:
+  - air_quality       qualità aria (per zona)
+  - soil_quality      pH, NPK, conducibilità (per zona)
+  - soil_moisture     umidità del suolo (per zona)
+  - power_consumption consumi degli attuatori (pompe, ventole, ecc.)
 
-Genera in tempo reale letture da 4 categorie di sensori distribuiti su 3
-zone di un'azienda agricola:
-
-  1. air_quality      - qualita' dell'aria (per zona)
-  2. soil_quality      - qualita' del suolo: pH, NPK, conducibilita' (per zona)
-  3. soil_moisture      - umidita' del suolo (per zona)
-  4. power_consumption  - consumi elettrici real-time dei componenti di
-                          automazione (pompe, ventole, riscaldatori, luci,
-                          gateway) - non legati a una singola zona
-
-Ogni lettura e' un oggetto JSON. Il generatore inietta periodicamente
-anomalie realistiche (picco di inquinamento, stress idrico, sovraccarico
-elettrico) in modo che i gruppi possano verificare le regole di alerting
-che implementano.
-
-OUTPUT
-------
-Questo script scrive i dati generati SOLO in due posti:
-
-  1. stdout   - una riga JSON per ogni lettura (utile per il debug e per
-                vedere il flusso "live" nei log del container).
-  2. un file CSV (default: data/sensor_data.csv) - un'unica tabella con
-     schema "largo" (union delle colonne di tutti i tipi di sensore); le
-     colonne non pertinenti a un dato tipo di sensore restano vuote.
-
-NON pubblica nulla su MQTT o Kafka: questo e' il compito che i gruppi
-devono realizzare durante l'hackathon, implementando le funzioni 
-publish_to_mqtt() / publish_to_kafka() qui sotto (gia' predisposte come 
-"punto di estensione"), che vengono chiamate automaticamente per ogni 
-lettura generata.
-
-
+Inietta periodicamente anomalie (inquinamento, stress idrico, sovraccarico)
+per far scattare le regole di alerting. Ogni lettura viene scritta su CSV
+(schema "largo", default data/sensor_data.csv) e pubblicata su MQTT.
 """
 
 import argparse
@@ -52,10 +24,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Optional
 
-# --------------------------------------------------------------------------
-# Configurazione dominio: zone e componenti di automazione
-# --------------------------------------------------------------------------
-
+# Configurazione dominio: zone e attuatori
 MQTT_HOST = os.getenv("MQTT_HOST", "mosquitto")
 MQTT_PORT = int(os.getenv("MQTT_PORT", "1883"))
 TOPIC_AIR_QUALITY = os.getenv("TOPIC_AIR_QUALITY", "sensors/air_quality")
@@ -76,8 +45,7 @@ ACTUATORS = [
     {"id": "gateway_controller", "nominal_w": 15, "type": "gateway", "zone": None},
 ]
 
-# Schema "largo" del CSV: union di tutte le colonne usate dai 4 tipi di
-# sensore. Le colonne non pertinenti a una riga restano vuote.
+# Schema "largo" del CSV: union delle colonne dei 4 tipi di sensore.
 CSV_FIELDNAMES = [
     "timestamp", "sensor_id", "type", "zone",
     "actuator_id", "actuator_type", "status",
@@ -102,11 +70,7 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="milliseconds")
 
 
-# --------------------------------------------------------------------------
-# Stato interno per rendere le serie realistiche (drift lento + rumore +
-# eventi anomali temporanei, invece di rumore puramente indipendente)
-# --------------------------------------------------------------------------
-
+# Stato interno per serie realistiche: drift lento + rumore + eventi anomali
 @dataclass
 class ZoneState:
     zone: str
@@ -136,10 +100,7 @@ class ActuatorState:
     overload_ticks_left: int = 0
 
 
-# --------------------------------------------------------------------------
 # Generatori di letture
-# --------------------------------------------------------------------------
-
 def _clip(value, lo, hi):
     return max(lo, min(hi, value))
 
@@ -166,7 +127,7 @@ AIR_QUALITY_BASELINE = {
     "pm25_ugm3": 10.0,
     "pm10_ugm3": 17.0,
 }
-AIR_QUALITY_REVERSION_RATE = 0.05  # quota di rientro verso la baseline ad ogni ciclo
+AIR_QUALITY_REVERSION_RATE = 0.05  # rientro verso la baseline a ogni ciclo
 
 
 def gen_air_quality(state: ZoneState) -> dict:
@@ -295,14 +256,10 @@ def gen_power_consumption(actuator: ActuatorState, zone_state: Optional[ZoneStat
     }
 
 
-# --------------------------------------------------------------------------
-# Output: stdout + CSV
-# --------------------------------------------------------------------------
-
+# Output: CSV + MQTT
 def open_csv_writer(csv_path: str):
-    """Apre (creando le cartelle necessarie) il file CSV in append e
-    restituisce (file_handle, DictWriter). Scrive l'header solo se il file
-    e' nuovo/vuoto."""
+    """Apre il CSV in append (creando le cartelle) e ritorna (file, DictWriter).
+    Scrive l'header solo se il file è nuovo/vuoto."""
     dirname = os.path.dirname(csv_path)
     if dirname:
         os.makedirs(dirname, exist_ok=True)
@@ -318,25 +275,21 @@ def open_csv_writer(csv_path: str):
 
 def write_csv_row(writer: "csv.DictWriter", csv_file, payload: dict):
     writer.writerow(payload)
-    csv_file.flush()  # cosi' un `tail -f` sul file vede subito le nuove righe
+    csv_file.flush()  # rende visibili subito le nuove righe (tail -f)
 
 
 
 import paho.mqtt.client as mqtt
 
 def create_mqtt_client() -> mqtt.Client:
-    """
-    Crea un client MQTT compatibile sia con paho-mqtt 1.x sia con paho-mqtt 2.x.
-    """
+    """Client MQTT compatibile con paho-mqtt 1.x e 2.x."""
     try:
         return mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     except AttributeError:
         return mqtt.Client()
 
 def wait_for_mqtt(host: str, port: int, retries: int = 20, delay: int = 5) -> mqtt.Client:
-    """
-    Attende che Mosquitto/MQTT sia pronto e restituisce un client connesso.
-    """
+    """Attende che MQTT sia pronto e ritorna un client connesso."""
     for attempt in range(1, retries + 1):
         client = create_mqtt_client()
 
@@ -366,9 +319,7 @@ def wait_for_mqtt(host: str, port: int, retries: int = 20, delay: int = 5) -> mq
     raise RuntimeError("Impossibile connettersi a Mosquitto/MQTT.")
 
 def publish_to_mqtt(client: mqtt.Client, topic: str, payload: dict) -> None:
-    """
-    Pubblica un messaggio JSON su un topic MQTT.
-    """
+    """Pubblica un payload JSON su un topic MQTT."""
     message = json.dumps(payload)
     result = client.publish(topic, message, qos=0)
 
@@ -385,10 +336,7 @@ def emit(payload: dict, csv_file, csv_writer, mqtt_client: mqtt.Client, topic: s
     
 
 
-# --------------------------------------------------------------------------
 # Main loop
-# --------------------------------------------------------------------------
-
 def main():
     parser = argparse.ArgumentParser(
         description="Simulatore di sensori Smart Farm per l'hackathon ADM."
@@ -407,10 +355,7 @@ def main():
     if args.seed is not None:
         random.seed(args.seed)
 
-    # Diagnostica di avvio: stampata SEMPRE, cosi' se il CSV non compare dove
-    # ci si aspetta, basta guardare i log (es. `docker compose logs
-    # sensor-simulator`) per capire subito quale percorso assoluto sta usando
-    # il processo e se la cartella e' scrivibile.
+    # Diagnostica di avvio: percorso assoluto del CSV e permessi di scrittura
     abs_csv_path = os.path.abspath(args.csv_path)
     abs_dir = os.path.dirname(abs_csv_path) or "."
     print(f"# [diagnostica] cwd corrente: {os.getcwd()}", file=sys.stderr)

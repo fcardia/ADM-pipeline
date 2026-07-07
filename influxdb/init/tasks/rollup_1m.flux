@@ -1,13 +1,6 @@
-// Task di rollup: media / minimo / massimo AL MINUTO di temperatura e umidità
-// per zona. Legge farm_raw, aggrega e materializza in farm_rollup (retention ∞).
-//
-// Campi scritti (measurement air_quality, tag zone):
-//   temperature_c      humidity_pct       (medie — nomi invariati, letti dal pannello)
-//   temperature_c_min  humidity_pct_min   (minimi)
-//   temperature_c_max  humidity_pct_max   (massimi)
-//
-// Per passare a cadenza ORARIA (più aderente alla traccia): cambia ogni "1m" in
-// "1h" qui sotto e aggiorna il titolo del pannello.
+// Rollup al minuto di temperatura/umidità per zona: farm_raw -> farm_rollup (retention ∞).
+// Campi: temperature_c / humidity_pct (media), *_min, *_max.
+// Per cadenza oraria: cambia ogni "1m" in "1h".
 option task = {name: "rollup_1m", every: 1m}
 
 src = () =>
